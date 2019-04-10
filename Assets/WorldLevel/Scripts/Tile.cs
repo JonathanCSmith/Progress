@@ -1,8 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 
-public enum HeightType
-{
+public enum HeightClassification {
 	DeepWater = 1,
 	ShallowWater = 2,
 	Shore = 3,
@@ -50,14 +49,14 @@ public enum BiomeType
 
 public class Tile
 {
-	public HeightType HeightType;
+	public HeightClassification heightClassification;
 	public HeatType HeatType;
 	public MoistureType MoistureType;
 	public BiomeType BiomeType;
 
     public float Cloud1Value { get; set; }
     public float Cloud2Value { get; set; }
-	public float HeightValue { get; set; }
+	public float heightValue { get; set; }
 	public float HeatValue { get; set; }
 	public float MoistureValue { get ; set; }
 	public int x, y;
@@ -69,7 +68,7 @@ public class Tile
 	public Tile Top;
 	public Tile Bottom;
 
-	public bool Collidable;
+	public bool collisionState;
 	public bool FloodFilled;
 
 	public Color Color = Color.black;
@@ -86,13 +85,13 @@ public class Tile
 	{
 		int count = 0;
 		
-		if (Collidable && Top != null && Top.BiomeType == BiomeType)
+		if (collisionState && Top != null && Top.BiomeType == BiomeType)
 			count += 1;
-		if (Collidable && Bottom != null && Bottom.BiomeType == BiomeType)
+		if (collisionState && Bottom != null && Bottom.BiomeType == BiomeType)
 			count += 4;
-		if (Collidable && Left != null && Left.BiomeType == BiomeType)
+		if (collisionState && Left != null && Left.BiomeType == BiomeType)
 			count += 8;
-		if (Collidable && Right != null && Right.BiomeType == BiomeType)
+		if (collisionState && Right != null && Right.BiomeType == BiomeType)
 			count += 2;
 		
 		BiomeBitmask = count;
@@ -102,13 +101,13 @@ public class Tile
 	{
 		int count = 0;
 		
-		if (Collidable && Top != null && Top.HeightType == HeightType)
+		if (collisionState && Top != null && Top.heightClassification == heightClassification)
 			count += 1;
-		if (Collidable && Right != null && Right.HeightType == HeightType)
+		if (collisionState && Right != null && Right.heightClassification == heightClassification)
 			count += 2;
-		if (Collidable && Bottom != null && Bottom.HeightType == HeightType)
+		if (collisionState && Bottom != null && Bottom.heightClassification == heightClassification)
 			count += 4;
-		if (Collidable && Left != null && Left.HeightType == HeightType)
+		if (collisionState && Left != null && Left.heightClassification == heightClassification)
 			count += 8;
 		
 		Bitmask = count;
@@ -149,7 +148,7 @@ public class Tile
 	
 	public void SetRiverPath(River river)
 	{
-		if (!Collidable)
+		if (!collisionState)
 			return;
 		
 		if (!Rivers.Contains (river)) {
@@ -160,9 +159,9 @@ public class Tile
 	private void SetRiverTile(River river)
 	{
 		SetRiverPath (river);
-		HeightType = HeightType.River;
-		HeightValue = 0;
-		Collidable = false;
+		heightClassification = HeightClassification.River;
+		heightValue = 0;
+		collisionState = false;
 	}
 
     // This function got messy.  Sorry.
@@ -281,4 +280,6 @@ public class Tile
 		}	
 	}
 
+    public void addData(string key, DataBucket bucket) { // TODO 
+    }
 }

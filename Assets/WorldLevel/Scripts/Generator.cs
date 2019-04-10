@@ -3,38 +3,80 @@ using UnityEngine;
 
 public abstract class Generator {
 
-    protected Generable generable;
-    protected int seed;
-    protected int width = 512;
-    protected int height = 512;
+    public readonly Generable generable;
+    public readonly int seed;
+    public readonly int width;
+    public readonly int height;
 
-    // Height map properties
-    protected int terrainOctaves = 6;
-    protected double terrainFrequency = 1.25;
-    protected float DeepWater = 0.2f;
-    protected float ShallowWater = 0.4f;
-    protected float Sand = 0.5f;
-    protected float Grass = 0.7f;
-    protected float Forest = 0.8f;
-    protected float Rock = 0.9f;
+    protected Tile[,] tiles;
 
-    // Heat properties
-    protected int heatOctaves = 4;
-    protected double heatFrequency = 3.0;
-    protected float ColdestValue = 0.05f;
-    protected float ColderValue = 0.18f;
-    protected float ColdValue = 0.4f;
-    protected float WarmValue = 0.6f;
-    protected float WarmerValue = 0.8f;
+    // Constructor with seed if none provided
+    protected Generator(Generable generable, int width, int height) : this(generable, UnityEngine.Random.Range(0, int.MaxValue), width, height) {}
 
-    // Moisture map
-    protected int moistureOctaves = 4;
-    protected double moistureFrequency = 3.0;
-    protected float DryerValue = 0.27f;
-    protected float DryValue = 0.4f;
-    protected float WetValue = 0.6f;
-    protected float WetterValue = 0.8f;
-    protected float WettestValue = 0.9f;
+    protected Generator(Generable generable, int seed, int width, int height) {
+        this.generable = generable;
+        this.seed = seed;
+        this.width = width;
+        this.height = height;
+
+        //HeightMapRenderer = this.generable.transform.Find("HeightTexture").GetComponent<MeshRenderer>();
+        //HeatMapRenderer = this.generable.transform.Find("HeatTexture").GetComponent<MeshRenderer>();
+        //MoistureMapRenderer = this.generable.transform.Find("MoistureTexture").GetComponent<MeshRenderer>();
+        //BiomeMapRenderer = this.generable.transform.Find("BiomeTexture").GetComponent<MeshRenderer>();
+    }
+
+    public virtual void generate() {
+        this.generateNoise();
+        this.generateSurfaceData();
+        this.generateTiles();
+
+        UpdateNeighbors();
+
+        GenerateRivers();
+        BuildRiverGroups();
+        DigRiverGroups();
+        AdjustMoistureMap();
+
+        UpdateBitmasks();
+        FloodFill();
+
+        GenerateBiomeMap();
+        UpdateBiomeBitmask();
+
+        realHeightMapData = TextureGenerator.GetRealHeightMapData(width, height, tiles);
+        heightMapData = TextureGenerator.GetHeightMapTexture(width, height, tiles);
+        heatMapData = TextureGenerator.GetHeatMapTexture(width, height, tiles);
+        moistureMapData = TextureGenerator.GetMoistureMapTexture(width, height, tiles);
+        biomeMapData = TextureGenerator.GetBiomeMapTexture(width, height, tiles, ColdestValue, ColderValue, ColdValue);
+
+        HeightMapRenderer.materials[0].mainTexture = heightMapData;
+        HeatMapRenderer.materials[0].mainTexture = heatMapData;
+        MoistureMapRenderer.materials[0].mainTexture = moistureMapData;
+        BiomeMapRenderer.materials[0].mainTexture = biomeMapData;
+    }
+
+    protected abstract void generateNoise();
+
+    protected abstract void generateSurfaceData();
+
+    // Build a Tile array from our data
+    private void generateTiles() {
+        this.tiles = new Tile[width, height];
+
+        for (var x = 0; x < width; x++) {
+            for (var y = 0; y < height; y++) {
+                Tile t = new Tile();
+                t.x = x;
+                t.y = y;
+
+                // Assess our tile properties in the context of the current data
+                t = this.fillTileData(t, x, y);
+                tiles[x, y] = t;
+            }
+        }
+    }
+
+    protected abstract Tile fillTileData(Tile t, int x, int y);
 
     // Moisture map
     protected int RiverCount = 40;
@@ -44,30 +86,14 @@ public abstract class Generator {
     protected int MinRiverLength = 20;
     protected int MaxRiverIntersections = 2;
 
-    public Generator(Generable generable) {
-        this.generable = generable;
 
-        seed = UnityEngine.Random.Range(0, int.MaxValue);
 
-        HeightMapRenderer = this.generable.transform.Find("HeightTexture").GetComponent<MeshRenderer>();
-        HeatMapRenderer = this.generable.transform.Find("HeatTexture").GetComponent<MeshRenderer>();
-        MoistureMapRenderer = this.generable.transform.Find("MoistureTexture").GetComponent<MeshRenderer>();
-        BiomeMapRenderer = this.generable.transform.Find("BiomeTexture").GetComponent<MeshRenderer>();
-    }
-
-	protected MapData heightData;
-	protected MapData heatData;
-	protected MapData moistureData;
-	protected MapData Clouds1;
-    protected MapData Clouds2;
 
     protected Texture2D realHeightMapData;
     protected Texture2D heightMapData;
     protected Texture2D heatMapData;
     protected Texture2D moistureMapData;
     protected Texture2D biomeMapData;
-
-    protected Tile[,] tiles;
 
 	protected List<TileGroup> Waters = new List<TileGroup> ();
 	protected List<TileGroup> Lands = new List<TileGroup> ();
@@ -94,61 +120,16 @@ public abstract class Generator {
         this.width = width;
         this.height = height;
     }
-
-	protected BiomeType[,] BiomeTable = new BiomeType[6,6] {   
-		//COLDEST        //COLDER          //COLD                  //HOT                          //HOTTER                       //HOTTEST
-		{ BiomeType.Ice, BiomeType.Tundra, BiomeType.Grassland,    BiomeType.Desert,              BiomeType.Desert,              BiomeType.Desert },              //DRYEST
-		{ BiomeType.Ice, BiomeType.Tundra, BiomeType.Grassland,    BiomeType.Desert,              BiomeType.Desert,              BiomeType.Desert },              //DRYER
-		{ BiomeType.Ice, BiomeType.Tundra, BiomeType.Woodland,     BiomeType.Woodland,            BiomeType.Savanna,             BiomeType.Savanna },             //DRY
-		{ BiomeType.Ice, BiomeType.Tundra, BiomeType.BorealForest, BiomeType.Woodland,            BiomeType.Savanna,             BiomeType.Savanna },             //WET
-		{ BiomeType.Ice, BiomeType.Tundra, BiomeType.BorealForest, BiomeType.SeasonalForest,      BiomeType.TropicalRainforest,  BiomeType.TropicalRainforest },  //WETTER
-		{ BiomeType.Ice, BiomeType.Tundra, BiomeType.BorealForest, BiomeType.TemperateRainforest, BiomeType.TropicalRainforest,  BiomeType.TropicalRainforest }   //WETTEST
-	};
-
-    public void GenerateSurface() {
-        Generate();
-    }
-
-    protected abstract void getData();
     protected abstract Tile getTileAbove(Tile tile);
     protected abstract Tile getTileBelow(Tile tile);
     protected abstract Tile getTileOnLeft(Tile tile);
     protected abstract Tile getTileOnRight(Tile tile);
 
-	protected virtual void Generate()
-	{		
-		getData ();
-		LoadTiles ();		
-		UpdateNeighbors ();
-		
-		GenerateRivers ();
-		BuildRiverGroups ();
-		DigRiverGroups ();
-		AdjustMoistureMap ();
-		
-		UpdateBitmasks ();
-		FloodFill ();
-		
-		GenerateBiomeMap ();
-		UpdateBiomeBitmask();
-
-        realHeightMapData = TextureGenerator.GetRealHeightMapData(width, height, tiles);
-        heightMapData = TextureGenerator.GetHeightMapTexture(width, height, tiles);
-        heatMapData = TextureGenerator.GetHeatMapTexture(width, height, tiles);
-        moistureMapData = TextureGenerator.GetMoistureMapTexture(width, height, tiles);
-        biomeMapData = TextureGenerator.GetBiomeMapTexture(width, height, tiles, ColdestValue, ColderValue, ColdValue);
-
-        HeightMapRenderer.materials[0].mainTexture = heightMapData;
-        HeatMapRenderer.materials[0].mainTexture = heatMapData;
-        MoistureMapRenderer.materials[0].mainTexture = moistureMapData;
-        BiomeMapRenderer.materials[0].mainTexture = biomeMapData;
-	}
-
 	void Update() {
         // Refresh with inspector values
 		if (Input.GetKeyDown (KeyCode.F5)) {
             seed = UnityEngine.Random.Range(0, int.MaxValue);
-            Generate();
+            generate();
 		}
 	}
 
@@ -169,7 +150,7 @@ public abstract class Generator {
 		for (var x = 0; x < width; x++) {
 			for (var y = 0; y < height; y++) {
 				
-				if (!tiles[x, y].Collidable) continue;
+				if (!tiles[x, y].collisionState) continue;
 				
 				Tile t = tiles[x,y];
 				t.BiomeType = GetBiomeType(t);
@@ -226,7 +207,7 @@ public abstract class Generator {
 			for (var y = 0; y < height; y++) {
 
 				Tile t = tiles[x,y];
-				if (t.HeightType == HeightType.River)
+				if (t.heightClassification == HeightClassification.River)
 				{
 					AddMoisture (t, (int)60);
 				}
@@ -328,7 +309,7 @@ public abstract class Generator {
 		if (tile == null)
 			return int.MaxValue;
 		else
-			return tile.HeightValue;
+			return tile.heightValue;
 	}
 
 	private void GenerateRivers()
@@ -346,10 +327,10 @@ public abstract class Generator {
 			Tile tile = tiles[x,y];
 
 			// validate the tile
-			if (!tile.Collidable) continue;
+			if (!tile.collisionState) continue;
 			if (tile.Rivers.Count > 0) continue;
 
-			if (tile.HeightValue > MinRiverHeight)
+			if (tile.heightValue > MinRiverHeight)
 			{				
 				// Tile is good to start river from
 				River river = new River(rivercount);
@@ -589,22 +570,22 @@ public abstract class Generator {
 		
 		// query height values of neighbors
 		if (left != null && left.GetRiverNeighborCount(river) < 2 && !river.Tiles.Contains(left)) 
-			leftValue = left.HeightValue;
+			leftValue = left.heightValue;
 		if (right != null && right.GetRiverNeighborCount(river) < 2 && !river.Tiles.Contains(right)) 
-			rightValue = right.HeightValue;
+			rightValue = right.heightValue;
 		if (top != null && top.GetRiverNeighborCount(river) < 2 && !river.Tiles.Contains(top)) 
-			topValue = top.HeightValue;
+			topValue = top.heightValue;
 		if (bottom != null && bottom.GetRiverNeighborCount(river) < 2 && !river.Tiles.Contains(bottom)) 
-			bottomValue = bottom.HeightValue;
+			bottomValue = bottom.heightValue;
 		
 		// if neighbor is existing river that is not this one, flow into it
-		if (bottom != null && bottom.Rivers.Count == 0 && !bottom.Collidable)
+		if (bottom != null && bottom.Rivers.Count == 0 && !bottom.collisionState)
 			bottomValue = 0;
-		if (top != null && top.Rivers.Count == 0 && !top.Collidable)
+		if (top != null && top.Rivers.Count == 0 && !top.collisionState)
 			topValue = 0;
-		if (left != null && left.Rivers.Count == 0 && !left.Collidable)
+		if (left != null && left.Rivers.Count == 0 && !left.collisionState)
 			leftValue = 0;
-		if (right != null && right.Rivers.Count == 0 && !right.Collidable)
+		if (right != null && right.Rivers.Count == 0 && !right.collisionState)
 			rightValue = 0;
 		
 		// override flow direction if a tile is significantly lower
@@ -630,7 +611,7 @@ public abstract class Generator {
 		
 		//Move to next neighbor
 		if (min == leftValue) {
-			if (left != null && left.Collidable)
+			if (left != null && left.collisionState)
 			{
 				if (river.CurrentDirection != Direction.Left){
 					river.TurnCount++;
@@ -639,7 +620,7 @@ public abstract class Generator {
 				FindPathToWater (left, direction, ref river);
 			}
 		} else if (min == rightValue) {
-			if (right != null && right.Collidable)
+			if (right != null && right.collisionState)
 			{
 				if (river.CurrentDirection != Direction.Right){
 					river.TurnCount++;
@@ -648,7 +629,7 @@ public abstract class Generator {
 				FindPathToWater (right, direction, ref river);
 			}
 		} else if (min == bottomValue) {
-			if (bottom != null && bottom.Collidable)
+			if (bottom != null && bottom.collisionState)
 			{
 				if (river.CurrentDirection != Direction.Bottom){
 					river.TurnCount++;
@@ -657,134 +638,13 @@ public abstract class Generator {
 				FindPathToWater (bottom, direction, ref river);
 			}
 		} else if (min == topValue) {
-			if (top != null && top.Collidable)
+			if (top != null && top.collisionState)
 			{
 				if (river.CurrentDirection != Direction.Top){
 					river.TurnCount++;
 					river.CurrentDirection = Direction.Top;
 				}
 				FindPathToWater (top, direction, ref river);
-			}
-		}
-	}
-
-	// Build a Tile array from our data
-	private void LoadTiles()
-	{
-		tiles = new Tile[width, height];
-		
-		for (var x = 0; x < width; x++)
-		{
-			for (var y = 0; y < height; y++)
-			{
-				Tile t = new Tile();
-				t.x = x;
-				t.y = y;
-
-				//set heightmap value
-				float heightValue = heightData.Data[x, y];
-				heightValue = (heightValue - heightData.Min) / (heightData.Max - heightData.Min);
-				t.HeightValue = heightValue;
-					
-
-				if (heightValue < DeepWater)  {
-					t.HeightType = HeightType.DeepWater;
-					t.Collidable = false;
-				}
-				else if (heightValue < ShallowWater)  {
-					t.HeightType = HeightType.ShallowWater;
-					t.Collidable = false;
-				}
-				else if (heightValue < Sand) {
-					t.HeightType = HeightType.Sand;
-					t.Collidable = true;
-				}
-				else if (heightValue < Grass) {
-					t.HeightType = HeightType.Grass;
-					t.Collidable = true;
-				}
-				else if (heightValue < Forest) {
-					t.HeightType = HeightType.Forest;
-					t.Collidable = true;
-				}
-				else if (heightValue < Rock) {
-					t.HeightType = HeightType.Rock;
-					t.Collidable = true;
-				}
-				else  {
-					t.HeightType = HeightType.Snow;
-					t.Collidable = true;
-				}
-
-
-				//adjust moisture based on height
-				if (t.HeightType == HeightType.DeepWater) {
-					moistureData.Data[t.x, t.y] += 8f * t.HeightValue;
-				}
-				else if (t.HeightType == HeightType.ShallowWater) {
-					moistureData.Data[t.x, t.y] += 3f * t.HeightValue;
-				}
-				else if (t.HeightType == HeightType.Shore) {
-					moistureData.Data[t.x, t.y] += 1f * t.HeightValue;
-				}
-				else if (t.HeightType == HeightType.Sand) {
-					moistureData.Data[t.x, t.y] += 0.2f * t.HeightValue;
-				}				
-				
-				//Moisture Map Analyze	
-				float moistureValue = moistureData.Data[x,y];
-				moistureValue = (moistureValue - moistureData.Min) / (moistureData.Max - moistureData.Min);
-				t.MoistureValue = moistureValue;
-				
-				//set moisture type
-				if (moistureValue < DryerValue) t.MoistureType = MoistureType.Dryest;
-				else if (moistureValue < DryValue) t.MoistureType = MoistureType.Dryer;
-				else if (moistureValue < WetValue) t.MoistureType = MoistureType.Dry;
-				else if (moistureValue < WetterValue) t.MoistureType = MoistureType.Wet;
-				else if (moistureValue < WettestValue) t.MoistureType = MoistureType.Wetter;
-				else t.MoistureType = MoistureType.Wettest;
-
-
-				// Adjust Heat Map based on Height - Higher == colder
-				if (t.HeightType == HeightType.Forest) {
-					heatData.Data[t.x, t.y] -= 0.1f * t.HeightValue;
-				}
-				else if (t.HeightType == HeightType.Rock) {
-					heatData.Data[t.x, t.y] -= 0.25f * t.HeightValue;
-				}
-				else if (t.HeightType == HeightType.Snow) {
-					heatData.Data[t.x, t.y] -= 0.4f * t.HeightValue;
-				}
-				else {
-					heatData.Data[t.x, t.y] += 0.01f * t.HeightValue;
-				}
-
-				// Set heat value
-				float heatValue = heatData.Data[x,y];
-				heatValue = (heatValue - heatData.Min) / (heatData.Max - heatData.Min);
-				t.HeatValue = heatValue;
-
-				// set heat type
-				if (heatValue < ColdestValue) t.HeatType = HeatType.Coldest;
-				else if (heatValue < ColderValue) t.HeatType = HeatType.Colder;
-				else if (heatValue < ColdValue) t.HeatType = HeatType.Cold;
-				else if (heatValue < WarmValue) t.HeatType = HeatType.Warm;
-				else if (heatValue < WarmerValue) t.HeatType = HeatType.Warmer;
-				else t.HeatType = HeatType.Warmest;
-
-                if (Clouds1 != null)
-                {
-                    t.Cloud1Value = Clouds1.Data[x, y];
-                    t.Cloud1Value = (t.Cloud1Value - Clouds1.Min) / (Clouds1.Max - Clouds1.Min);
-                }
-
-                if (Clouds2 != null)
-                {
-                    t.Cloud2Value = Clouds2.Data[x, y];
-                    t.Cloud2Value = (t.Cloud2Value - Clouds2.Min) / (Clouds2.Max - Clouds2.Min);
-                }
-
-                tiles[x,y] = t;
 			}
 		}
 	}
@@ -828,7 +688,7 @@ public abstract class Generator {
 				if (t.FloodFilled) continue;
 
 				// Land
-				if (t.Collidable)   
+				if (t.collisionState)   
 				{
 					TileGroup group = new TileGroup();
 					group.Type = TileGroupType.Land;
@@ -865,9 +725,9 @@ public abstract class Generator {
 			return;
 		if (tile.FloodFilled) 
 			return;
-		if (tiles.Type == TileGroupType.Land && !tile.Collidable)
+		if (tiles.Type == TileGroupType.Land && !tile.collisionState)
 			return;
-		if (tiles.Type == TileGroupType.Water && tile.Collidable)
+		if (tiles.Type == TileGroupType.Water && tile.collisionState)
 			return;
 
 		// Add to TileGroup
@@ -876,16 +736,16 @@ public abstract class Generator {
 
 		// floodfill into neighbors
 		Tile t = getTileAbove (tile);
-		if (t != null && !t.FloodFilled && tile.Collidable == t.Collidable)
+		if (t != null && !t.FloodFilled && tile.collisionState == t.collisionState)
 			stack.Push (t);
 		t = getTileBelow (tile);
-		if (t != null && !t.FloodFilled && tile.Collidable == t.Collidable)
+		if (t != null && !t.FloodFilled && tile.collisionState == t.collisionState)
 			stack.Push (t);
 		t = getTileOnLeft (tile);
-		if (t != null && !t.FloodFilled && tile.Collidable == t.Collidable)
+		if (t != null && !t.FloodFilled && tile.collisionState == t.collisionState)
 			stack.Push (t);
 		t = getTileOnRight (tile);
-		if (t != null && !t.FloodFilled && tile.Collidable == t.Collidable)
+		if (t != null && !t.FloodFilled && tile.collisionState == t.collisionState)
 			stack.Push (t);
 	}
     

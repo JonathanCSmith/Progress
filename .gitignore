@@ -8,3 +8,4 @@ obj/
 Logs/
 *.*proj
 *.sln
+*.meta

@@ -26,9 +26,9 @@ public class SphericalWorldGenerator : Generator {
         PaletteTexture = transform.Find("PaletteTexture").GetComponent<MeshRenderer>();
     }
 
-	protected override void Generate()
+	protected override void generate()
 	{
-		base.Generate ();
+		base.generate ();
 
         Texture2D bumpTexture = TextureGenerator.GetBumpMap (width, height, tiles);
 		Texture2D normal = TextureGenerator.CalculateNormalMap(bumpTexture, 3);
@@ -82,7 +82,7 @@ public class SphericalWorldGenerator : Generator {
 		                                seed);
 	}
 
-	protected override void getData()
+	protected override void generateSurfaceData()
 	{
 		heightData = new MapData (width, height);
 		heatData = new MapData (width, height);

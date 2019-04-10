@@ -24,7 +24,7 @@ public class PlanetController : Generable {
     PlanetGenerator planetGenerator;
     TerrainManager terrainManager;
 
-    // TODO: A Planet may have a spherical view & a surface view so we should decouple our generators from the object controller
+    // TODO: Provide a spherical view of the surface
 
     Terrain terrain;
 
@@ -36,14 +36,8 @@ public class PlanetController : Generable {
         this.planetGenerator = new PlanetGenerator(this);
         this.terrainManager = new TerrainManager(this);
 
+        // Create a nice default seed
         this.seed = UnityEngine.Random.Range(0, int.MaxValue);
-    }
-
-    public void generate() {
-        this.planetGenerator.setDimensions(this.width, this.height);
-        this.planetGenerator.setSeed(this.seed);
-        this.planetGenerator.GenerateSurface();
-        this.planetGenerator.generateTerrain(this.sourcePatchSize, this.targetPatchSize);
     }
 
     public void setDimensions(int width, int height) {
@@ -58,5 +52,21 @@ public class PlanetController : Generable {
     public void setPatchScaling(int sourcePatchSize, int targetPatchSize) {
         this.sourcePatchSize = sourcePatchSize;
         this.targetPatchSize = targetPatchSize;
+
+        // TODO: Forward to terrain manager?
+    }
+
+    public void generate() {
+        this.planetGenerator.setDimensions(this.width, this.height);
+        this.planetGenerator.setSeed(this.seed);
+        this.planetGenerator.generate();
+
+
+        // TODO: this shouldn't be needed as it should be handled by the spawn player now
+        //this.planetGenerator.generateTerrain(this.sourcePatchSize, this.targetPatchSize);
+    }
+
+    public void spawnPlayer(GameObject player, FirstPersonController controller) {
+        this.terrainManager.spawnPlayer(controller, null); // TODO - not null as default - this should not be the general case
     }
 }
