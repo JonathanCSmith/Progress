@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using AccidentalNoise;
 using UnityEngine;
 
-public class MoisturePlanetProperty : PlanetPropertyGenerator {
+public class SurfaceMoisture : PropertyDecorator {
 
     public static readonly string NAME = "moisture";
+    public static readonly string[] DEPENDENCIES = new string[] {
+        SurfaceHeight.NAME
+    };
 
     // Available tile props
     List<TileMoistureProperties> tileProperties;
@@ -17,13 +20,17 @@ public class MoisturePlanetProperty : PlanetPropertyGenerator {
 
     protected MapData moistureData;
 
-    public MoisturePlanetProperty() : base(MoisturePlanetProperty.NAME) {
-        this.tileProperties = MoisturePlanetProperty.generateDefaultTileMoistureProperties();
-        this.heightClassificationModifiers = MoisturePlanetProperty.generateDefaultMoistureClassificationModifiers();
+    public SurfaceMoisture() : base(SurfaceMoisture.NAME) {
+        this.tileProperties = SurfaceMoisture.generateDefaultTileMoistureProperties();
+        this.heightClassificationModifiers = SurfaceMoisture.generateDefaultMoistureClassificationModifiers();
+    }
+
+    public override string[] getPropertyDependencies() {
+        return SurfaceMoisture.DEPENDENCIES;
     }
 
     public override bool initialise(Generable generable) {
-        return generable.checkPropertyEnabled(HeightPlanetProperty.NAME);
+        return generable.checkPropertyEnabled(Rivers.NAME);
     }
 
     public override void generateNoise(int seed) {
@@ -216,11 +223,11 @@ public class Moisture : DataBucket {
     }
 
     public static Moisture getMoisture(Tile t) {
-        return (Moisture)t.getData(MoisturePlanetProperty.NAME);
+        return (Moisture)t.getData(SurfaceMoisture.NAME);
     }
 
     public static void setMoisture(Tile t, Moisture moisture) {
-        t.setData(MoisturePlanetProperty.NAME, moisture);
+        t.setData(SurfaceMoisture.NAME, moisture);
     }
 }
 

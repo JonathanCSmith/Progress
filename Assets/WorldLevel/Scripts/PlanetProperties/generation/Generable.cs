@@ -20,6 +20,7 @@ public abstract class Generable : MonoBehaviour {
     int targetPatchSize = 512;
 
     Tile[,] tiles;
+    List<MapData> planetData = new List<MapData>();
 
     public int getWidth() {
         return this.width;
@@ -133,7 +134,7 @@ public abstract class Generable : MonoBehaviour {
 
     public abstract bool checkPropertyEnabled(String type);
 
-    public abstract PlanetPropertyGenerator getProperty(String type);
+    public abstract PropertyDecorator getProperty(String type);
 
     public abstract bool checkFeatureEnabled(String type);
 

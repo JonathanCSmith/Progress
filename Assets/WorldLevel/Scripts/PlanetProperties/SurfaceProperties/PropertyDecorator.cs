@@ -1,11 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-
-public abstract class PlanetPropertyGenerator : PlanetProperty {
+﻿/// <summary>
+/// Represents a decorator where the tile generation is independent of neighbours
+/// </summary>
+public abstract class PropertyDecorator : PlanetDecorator {
 
     private readonly string planetPropertyName;
 
-    public PlanetPropertyGenerator(string planetPropertyName) {
+    public PropertyDecorator(string planetPropertyName) {
         this.planetPropertyName = planetPropertyName;
     }
 
@@ -13,7 +13,7 @@ public abstract class PlanetPropertyGenerator : PlanetProperty {
         return this.planetPropertyName;
     }
 
-    public abstract List<String> getDependencies();
+    public abstract string[] getPropertyDependencies();
 
     public abstract bool initialise(Generable generable);
 

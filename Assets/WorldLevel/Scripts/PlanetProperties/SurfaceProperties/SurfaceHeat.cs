@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using AccidentalNoise;
 using UnityEngine;
 
-public class PlanetHeat : PlanetPropertyGenerator {
+public class SurfaceHeat : PropertyDecorator {
 
     public static readonly string NAME = "heat";
+    public static readonly string[] DEPENDENCIES = new string[] {
+        SurfaceHeight.NAME
+    };
 
     // Available tile props
     List<TileHeatProperties> tileProperties;
@@ -19,13 +22,17 @@ public class PlanetHeat : PlanetPropertyGenerator {
     // Data
     protected MapData heatData;
 
-    public PlanetHeat() : base(PlanetHeat.NAME) {
-        this.tileProperties = PlanetHeat.generateDefaultTileHeatProperties();
-        this.heightClassificationModifiers = PlanetHeat.generateDefaultHeatClassificationModifiers();
+    public SurfaceHeat() : base(SurfaceHeat.NAME) {
+        this.tileProperties = SurfaceHeat.generateDefaultTileHeatProperties();
+        this.heightClassificationModifiers = SurfaceHeat.generateDefaultHeatClassificationModifiers();
+    }
+
+    public override string[] getPropertyDependencies() {
+        return SurfaceHeat.DEPENDENCIES;
     }
 
     public override bool initialise(Generable generable) {
-        return generable.checkPropertyEnabled(HeightPlanetProperty.NAME);
+        return generable.checkPropertyEnabled(SurfaceHeight.NAME);
     }
 
     public override void generateNoise(int seed) {
@@ -208,10 +215,10 @@ public class Heat : DataBucket {
     }
 
     public static Heat getHeat(Tile tile) {
-        return (Heat)tile.getData(PlanetHeat.NAME);
+        return (Heat)tile.getData(SurfaceHeat.NAME);
     }
 
     public static void setHeat(Tile tile, Heat heat) {
-        tile.setData(PlanetHeat.NAME, heat);
+        tile.setData(SurfaceHeat.NAME, heat);
     }
 }

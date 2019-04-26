@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System;
 using UnityEngine;
 
-public class PlanetHeight : PlanetPropertyGenerator {
+public class SurfaceHeight : PropertyDecorator {
 
     public static readonly string NAME = "height";
+    public static readonly string[] DEPENDENCIES = new string[] {};
 
     // Available tile props
     List<TileHeightProperties> tileProperties;
@@ -18,8 +19,12 @@ public class PlanetHeight : PlanetPropertyGenerator {
     // Data
     protected MapData heightData;
 
-    public PlanetHeight() : base(PlanetHeight.NAME) {
-        this.tileProperties = PlanetHeight.generateDefaultTileHeightProperties();
+    public SurfaceHeight() : base(SurfaceHeight.NAME) {
+        this.tileProperties = SurfaceHeight.generateDefaultTileHeightProperties();
+    }
+
+    public override string[] getPropertyDependencies() {
+        return SurfaceHeight.DEPENDENCIES;
     }
 
     // TODO Add constructor for non default worlds!
@@ -53,7 +58,7 @@ public class PlanetHeight : PlanetPropertyGenerator {
         float heightValue = this.heightData.data[x, y];
         heightValue = (heightValue - heightData.min) / (heightData.max - heightData.min); // Normalise
         Height heightProperty = new Height(heightValue, this.pickHeightProperties(heightValue));
-        t.setData(PlanetHeight.NAME, heightProperty);
+        t.setData(SurfaceHeight.NAME, heightProperty);
 
         // Set our bitmask data
         int bitmask = 0;
@@ -79,7 +84,7 @@ public class PlanetHeight : PlanetPropertyGenerator {
             }
         }
 
-        t.setDataBitmask(PlanetHeight.NAME, bitmask);
+        t.setDataBitmask(SurfaceHeight.NAME, bitmask);
     }
 
     public TileHeightProperties pickHeightProperties(float heightValue) {
@@ -178,6 +183,6 @@ public class Height : DataBucket {
     }
 
     public static Height getHeightForTile(Tile tile) {
-        return (Height)tile.getData(PlanetHeight.NAME);
+        return (Height)tile.getData(SurfaceHeight.NAME);
     }
 }

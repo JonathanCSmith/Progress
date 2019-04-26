@@ -1,9 +1,10 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
-public class BodiesOfFeatureGenerator : FeatureDecorator {
+public class BodiesOf : FeatureDecorator {
 
     public static readonly string NAME = "bodies";
+    public static readonly string[] DEPENDENCIES = new string[] { };
 
     private readonly int islandThreshold = 100;
     private readonly int lakeThreshold = 100;
@@ -11,15 +12,19 @@ public class BodiesOfFeatureGenerator : FeatureDecorator {
     protected List<BodyOf> bodiesOf = new List<BodyOf>();
     private List<TileIndex> filledTiles = new List<TileIndex>();
 
-    public BodiesOfFeatureGenerator(int islandThreshold, int lakeThreshold) : base(BodiesOfFeatureGenerator.NAME) {
+    public BodiesOf(int islandThreshold, int lakeThreshold) : base(BodiesOf.NAME) {
         this.islandThreshold = islandThreshold;
         this.lakeThreshold = lakeThreshold;
     }
 
-    public BodiesOfFeatureGenerator() : base(BodiesOfFeatureGenerator.NAME) { }
+    public BodiesOf() : base(BodiesOf.NAME) { }
+
+    public override string[] getFeatureDependencies() {
+        return BodiesOf.DEPENDENCIES;
+    }
 
     public override bool generate(Generable generable) {
-        if (!generable.checkPropertyEnabled(SurfaceHeight.NAME)) {
+        if (!generable.checkPropertyEnabled(Rivers.NAME)) {
             return false;
         }
 
@@ -40,7 +45,7 @@ public class BodiesOfFeatureGenerator : FeatureDecorator {
 
             foreach (TileIndex tileIndex in body.getMembers()) {
                 Tile tile = generable.getTileByIndex(tileIndex);
-                BodiesOfFeatureGenerator.addBodyOf(tile, body);
+                BodiesOf.addBodyOf(tile, body);
             }
         }
 
@@ -110,11 +115,11 @@ public class BodiesOfFeatureGenerator : FeatureDecorator {
     }
 
     public static void addBodyOf(Tile tile, BodyOf body) {
-        tile.setData(BodiesOfFeatureGenerator.NAME, new BodyOfData(body.getId()));
+        tile.setData(BodiesOf.NAME, new BodyOfData(body.getId()));
     }
 
     public static BodyOfData getBodyFromTile(Tile tile) {
-        return (BodyOfData)tile.getData(BodiesOfFeatureGenerator.NAME);
+        return (BodyOfData)tile.getData(BodiesOf.NAME);
     }
 }
 

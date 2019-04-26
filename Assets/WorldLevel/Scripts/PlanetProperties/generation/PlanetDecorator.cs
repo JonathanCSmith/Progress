@@ -1,8 +1,4 @@
-﻿using System.Collections.Generic;
-
-public interface PlanetProperty {
+﻿public interface PlanetDecorator {
 
     string getName();
-
-    List<string> getDependencies();
 }

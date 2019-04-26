@@ -1,0 +1,29 @@
+TODO:
+
+Workflow
+
+GS
+
+	-> MM 
+		-> Options
+			-> Menus
+		-> New SP
+			-> Set props 
+			-> Generate random & display 
+			-> Allow regen
+			-> Switch to SurfaceTerrainScene
+		-> Load SP
+			-> Load available P 1 at a time and display as above
+			-> Allow cycling through available
+			-> Switch to SurfaceTerrainScene
+		-> Join MP
+
+GS Scene
+
+	1) Needs a canvas
+	2) Part of the PController should be shareable between scenes or, on transitioning to terrain, all of the pertinent info should be passed
+	3) Generate or load terrain around player
+
+
+
+

@@ -1,18 +1,16 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
-public abstract class PlanetFeatureGenerator {
+﻿public abstract class FeatureDecorator : PlanetDecorator {
 
     private readonly string featureName;
 
-    public PlanetFeatureGenerator(string name) {
+    public FeatureDecorator(string name) {
         this.featureName = name;
     }
 
     public string getName() {
         return this.featureName;
     }
+
+    public abstract string[] getFeatureDependencies();
 
     public abstract bool generate(Generable generable);
 }

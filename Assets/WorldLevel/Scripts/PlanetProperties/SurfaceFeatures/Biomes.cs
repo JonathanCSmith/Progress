@@ -1,6 +1,7 @@
-﻿public class BiomeFeatureGenerator : FeatureDecorator {
+﻿public class Biomes : FeatureDecorator {
 
     public static readonly string NAME = "biomes";
+    public static readonly string[] DEPENDENCIES = new string[] {};
 
     // TODO: Allow a way to deserialize this - that way we can reuse this object with different props
     protected BiomeType[,] LandBiomeTable = new BiomeType[6, 6] {   
@@ -13,10 +14,14 @@
         { BiomeType.Ice, BiomeType.Tundra, BiomeType.BorealForest, BiomeType.TemperateRainforest, BiomeType.TropicalRainforest,  BiomeType.TropicalRainforest }   //WETTEST
     };
 
-    public BiomeFeatureGenerator() : base(BiomeFeatureGenerator.NAME) { }
+    public Biomes() : base(Biomes.NAME) { }
+
+    public override string[] getFeatureDependencies() {
+        return Biomes.DEPENDENCIES;
+    }
 
     public override bool generate(Generable generable) {
-        if (!generable.checkPropertyEnabled(SurfaceMoisture.NAME) || !generable.checkPropertyEnabled(SurfaceHeat.NAME)) {
+        if (!generable.checkPropertyEnabled(SurfaceMoisture.NAME) || !generable.checkPropertyEnabled(SurfaceHeat.NAME) || !generable.checkFeatureEnabled(SurfaceHeight.NAME) {
             return false;
         }
 
@@ -37,7 +42,7 @@
                 }
 
                 BiomeType b = this.getBiomeType(t);
-                BiomeFeatureGenerator.setBiomeTypeForTile(t, b);
+                Biomes.setBiomeTypeForTile(t, b);
             }
         }
     }
@@ -50,11 +55,11 @@
     }
 
     public static void setBiomeTypeForTile(Tile t, BiomeType b) {
-        t.setData(BiomeFeatureGenerator.NAME, new BiomeData(b));
+        t.setData(Biomes.NAME, new BiomeData(b));
     }
 
     public static BiomeData getBiomeTypeForTile(Tile t) {
-        return (BiomeData)t.getData(BiomeFeatureGenerator.NAME);
+        return (BiomeData)t.getData(Biomes.NAME);
     }
 
     private void generateBiomeBitmasks(Generable generable) {
@@ -67,7 +72,7 @@
     }
 
     private void generateBiomeBitmask(Tile t) {
-        BiomeData biomeData = BiomeFeatureGenerator.getBiomeTypeForTile(t);
+        BiomeData biomeData = Biomes.getBiomeTypeForTile(t);
         Height heightProperty = Height.getHeightForTile(t);
 
         // Set our bitmask data
@@ -87,14 +92,14 @@
                     continue;
                 }
 
-                biomeToCheck = BiomeFeatureGenerator.getBiomeTypeForTile(tileToCheck);
+                biomeToCheck = Biomes.getBiomeTypeForTile(tileToCheck);
                 if (biomeToCheck.getBiomeType() == biomeData.biomeType) {
                     bitmask += bitmaskAdditors[i];
                 }
             }
         }
 
-        t.setDataBitmask(BiomeFeatureGenerator.NAME, bitmask);
+        t.setDataBitmask(Biomes.NAME, bitmask);
     }
 }
 
