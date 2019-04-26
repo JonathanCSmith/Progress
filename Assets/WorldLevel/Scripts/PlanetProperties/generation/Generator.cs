@@ -4,20 +4,13 @@ using UnityEngine;
 public abstract class Generator {
 
     public readonly Generable generable;
-    public readonly int seed;
-    public readonly int width;
-    public readonly int height;
 
     protected Tile[,] tiles;
 
     // Constructor with seed if none provided
-    protected Generator(Generable generable, int width, int height) : this(generable, UnityEngine.Random.Range(0, int.MaxValue), width, height) {}
 
-    protected Generator(Generable generable, int seed, int width, int height) {
+    protected Generator(Generable generable) {
         this.generable = generable;
-        this.seed = seed;
-        this.width = width;
-        this.height = height;
 
         //HeightMapRenderer = this.generable.transform.Find("HeightTexture").GetComponent<MeshRenderer>();
         //HeatMapRenderer = this.generable.transform.Find("HeatTexture").GetComponent<MeshRenderer>();
@@ -29,13 +22,13 @@ public abstract class Generator {
         this.generateNoise();
         this.generateSurfaceData();
         this.generateTiles();
+        this.updateNeighbours();
 
-        UpdateNeighbors();
+        // Paint our maps
+        this.fillTiles();
 
-        GenerateRivers();
-        BuildRiverGroups();
-        DigRiverGroups();
-        AdjustMoistureMap();
+        // Features
+        this.generateFeatures();
 
         UpdateBitmasks();
         FloodFill();
@@ -61,10 +54,10 @@ public abstract class Generator {
 
     // Build a Tile array from our data
     private void generateTiles() {
-        this.tiles = new Tile[width, height];
+        this.tiles = new Tile[this.generable.getWidth(), this.generable.getHeight()];
 
-        for (var x = 0; x < width; x++) {
-            for (var y = 0; y < height; y++) {
+        for (var x = 0; x < this.generable.getWidth(); x++) {
+            for (var y = 0; y < this.generable.getHeight(); y++) {
                 Tile t = new Tile();
                 t.x = x;
                 t.y = y;
@@ -76,15 +69,39 @@ public abstract class Generator {
         }
     }
 
+    private void updateNeighbours() {
+        for (var x = 0; x < this.generable.getWidth(); x++) {
+            for (var y = 0; y < this.generable.getHeight(); y++) {
+                Tile t = this.tiles[x, y];
+                t.setLeft(TileHelper.getTileOnLeft(t, this.generable));
+                t.setAbove(TileHelper.getTileAbove(t, this.generable));
+                t.setRight(TileHelper.getTileOnRight(t, this.generable));
+                t.setBelow(TileHelper.getTileBelow(t, this.generable));
+            }
+        }
+    }
+
+    // Fill the tiles with data
+    private void fillTiles() {
+        for (var x = 0; x < this.generable.getWidth(); x++) {
+            for (var y = 0; y < this.generable.getHeight(); y++) {
+                Tile t = this.tiles[x, y];
+
+                // Assess our tile properties in the context of the current data
+                t = this.fillTileData(t, x, y);
+            }
+        }
+    }
+
     protected abstract Tile fillTileData(Tile t, int x, int y);
 
-    // Moisture map
-    protected int RiverCount = 40;
-    protected float MinRiverHeight = 0.6f;
-    protected int MaxRiverAttempts = 1000;
-    protected int MinRiverTurns = 18;
-    protected int MinRiverLength = 20;
-    protected int MaxRiverIntersections = 2;
+    protected abstract void generateFeatures();
+
+
+
+
+
+
 
 
 
@@ -97,8 +114,7 @@ public abstract class Generator {
 
 	protected List<TileGroup> Waters = new List<TileGroup> ();
 	protected List<TileGroup> Lands = new List<TileGroup> ();
-
-	protected List<River> Rivers = new List<River>();	
+	
 	protected List<RiverGroup> RiverGroups = new List<RiverGroup>();
 		
 	// Our texture output gameobject
@@ -111,21 +127,7 @@ public abstract class Generator {
 
 
 
-
-    public void setSeed(int seed) {
-        this.seed = seed;
-    }
-
-    public void setDimensions(int width, int height) {
-        this.width = width;
-        this.height = height;
-    }
-    protected abstract Tile getTileAbove(Tile tile);
-    protected abstract Tile getTileBelow(Tile tile);
-    protected abstract Tile getTileOnLeft(Tile tile);
-    protected abstract Tile getTileOnRight(Tile tile);
-
-	void Update() {
+    void Update() {
         // Refresh with inspector values
 		if (Input.GetKeyDown (KeyCode.F5)) {
             seed = UnityEngine.Random.Range(0, int.MaxValue);
@@ -249,60 +251,7 @@ public abstract class Generator {
 		}
 	}
 
-	private void BuildRiverGroups()
-	{
-		//loop each tile, checking if it belongs to multiple rivers
-		for (var x = 0; x < width; x++) {
-			for (var y = 0; y < height; y++) {
-				Tile t = tiles[x,y];
-
-				if (t.Rivers.Count > 1)
-				{
-					// multiple rivers == intersection
-					RiverGroup group = null;
-
-					// Does a rivergroup already exist for this group?
-					for (int n=0; n < t.Rivers.Count; n++)
-					{
-						River tileriver = t.Rivers[n];
-						for (int i = 0; i < RiverGroups.Count; i++)
-						{
-							for (int j = 0; j < RiverGroups[i].Rivers.Count; j++)
-							{
-								River river = RiverGroups[i].Rivers[j];
-								if (river.ID == tileriver.ID)
-								{
-									group = RiverGroups[i];
-								}
-								if (group != null) break;
-							}
-							if (group != null) break;
-						}
-						if (group != null) break;
-					}
-
-					// existing group found -- add to it
-					if (group != null)
-					{
-						for (int n=0; n < t.Rivers.Count; n++)
-						{
-							if (!group.Rivers.Contains(t.Rivers[n]))
-								group.Rivers.Add(t.Rivers[n]);
-						}
-					}
-					else   //No existing group found - create a new one
-					{
-						group = new RiverGroup();
-						for (int n=0; n < t.Rivers.Count; n++)
-						{
-							group.Rivers.Add(t.Rivers[n]);
-						}
-						RiverGroups.Add (group);
-					}
-				}
-			}
-		}	
-	}
+	
 
 	public float GetHeightValue(Tile tile)
 	{
@@ -312,56 +261,7 @@ public abstract class Generator {
 			return tile.heightValue;
 	}
 
-	private void GenerateRivers()
-	{
-		int attempts = 0;
-		int rivercount = RiverCount;
-		Rivers = new List<River> ();
-
-		// Generate some rivers
-		while (rivercount > 0 && attempts < MaxRiverAttempts) {
-
-			// Get a random tile
-			int x = UnityEngine.Random.Range (0, width);
-			int y = UnityEngine.Random.Range (0, height);			
-			Tile tile = tiles[x,y];
-
-			// validate the tile
-			if (!tile.collisionState) continue;
-			if (tile.Rivers.Count > 0) continue;
-
-			if (tile.heightValue > MinRiverHeight)
-			{				
-				// Tile is good to start river from
-				River river = new River(rivercount);
-
-				// Figure out the direction this river will try to flow
-				river.CurrentDirection = tile.GetLowestNeighbor (this);
-
-				// Recursively find a path to water
-				FindPathToWater(tile, river.CurrentDirection, ref river);
-
-				// Validate the generated river 
-				if (river.TurnCount < MinRiverTurns || river.Tiles.Count < MinRiverLength || river.Intersections > MaxRiverIntersections)
-				{
-					//Validation failed - remove this river
-					for (int i = 0; i < river.Tiles.Count; i++)
-					{
-						Tile t = river.Tiles[i];
-						t.Rivers.Remove (river);
-					}
-				}
-				else if (river.Tiles.Count >= MinRiverLength)
-				{
-					//Validation passed - Add river to list
-					Rivers.Add (river);
-					tile.Rivers.Add (river);
-					rivercount--;	
-				}
-			}		
-			attempts++;
-		}
-	}
+	
 
 	// Dig river based on a parent river vein
 	private void DigRiver(River river, River parent)
@@ -385,10 +285,10 @@ public abstract class Generator {
 		int counter = 0;
 		int intersectionCount = river.Tiles.Count - intersectionID;
 		int size = UnityEngine.Random.Range(intersectionSize, 5);
-		river.Length = river.Tiles.Count;  
+		river.length = river.Tiles.Count;  
 
 		// randomize size change
-		int two = river.Length / 2;
+		int two = river.length / 2;
 		int three = two / 2;
 		int four = three / 2;
 		int five = four / 2;
@@ -417,8 +317,8 @@ public abstract class Generator {
 		int count4 = count3 + UnityEngine.Random.Range (twomin, two); 
 
 		// Make sure we are not digging past the river path
-		if (count4 > river.Length) {
-			int extra = count4 - river.Length;
+		if (count4 > river.length) {
+			int extra = count4 - river.length;
 			while (extra > 0)
 			{
 				if (count1 > 0) { count1--; count2--; count3--; count4--; extra--; }
@@ -479,10 +379,10 @@ public abstract class Generator {
 		
 		// How wide are we digging this river?
 		int size = UnityEngine.Random.Range(1,5);
-		river.Length = river.Tiles.Count;  
+		river.length = river.Tiles.Count;  
 
 		// randomize size change
-		int two = river.Length / 2;
+		int two = river.length / 2;
 		int three = two / 2;
 		int four = three / 2;
 		int five = four / 2;
@@ -511,8 +411,8 @@ public abstract class Generator {
 		int count4 = count3 + UnityEngine.Random.Range (twomin, two);  
 		
 		// Make sure we are not digging past the river path
-		if (count4 > river.Length) {
-			int extra = count4 - river.Length;
+		if (count4 > river.length) {
+			int extra = count4 - river.length;
 			while (extra > 0)
 			{
 				if (count1 > 0) { count1--; count2--; count3--; count4--; extra--; }
@@ -543,125 +443,6 @@ public abstract class Generator {
 				t.DigRiver(river, 0);
 			}			
 			counter++;			
-		}
-	}
-	
-	private void FindPathToWater(Tile tile, Direction direction, ref River river)
-	{
-		if (tile.Rivers.Contains (river))
-			return;
-
-		// check if there is already a river on this tile
-		if (tile.Rivers.Count > 0)
-			river.Intersections++;
-
-		river.AddTile (tile);
-
-		// get neighbors
-		Tile left = getTileOnLeft (tile);
-		Tile right = getTileOnRight (tile);
-		Tile top = getTileAbove (tile);
-		Tile bottom = getTileBelow (tile);
-		
-		float leftValue = int.MaxValue;
-		float rightValue = int.MaxValue;
-		float topValue = int.MaxValue;
-		float bottomValue = int.MaxValue;
-		
-		// query height values of neighbors
-		if (left != null && left.GetRiverNeighborCount(river) < 2 && !river.Tiles.Contains(left)) 
-			leftValue = left.heightValue;
-		if (right != null && right.GetRiverNeighborCount(river) < 2 && !river.Tiles.Contains(right)) 
-			rightValue = right.heightValue;
-		if (top != null && top.GetRiverNeighborCount(river) < 2 && !river.Tiles.Contains(top)) 
-			topValue = top.heightValue;
-		if (bottom != null && bottom.GetRiverNeighborCount(river) < 2 && !river.Tiles.Contains(bottom)) 
-			bottomValue = bottom.heightValue;
-		
-		// if neighbor is existing river that is not this one, flow into it
-		if (bottom != null && bottom.Rivers.Count == 0 && !bottom.collisionState)
-			bottomValue = 0;
-		if (top != null && top.Rivers.Count == 0 && !top.collisionState)
-			topValue = 0;
-		if (left != null && left.Rivers.Count == 0 && !left.collisionState)
-			leftValue = 0;
-		if (right != null && right.Rivers.Count == 0 && !right.collisionState)
-			rightValue = 0;
-		
-		// override flow direction if a tile is significantly lower
-		if (direction == Direction.Left)
-			if (Mathf.Abs (rightValue - leftValue) < 0.1f)
-				rightValue = int.MaxValue;
-		if (direction == Direction.Right)
-			if (Mathf.Abs (rightValue - leftValue) < 0.1f)
-				leftValue = int.MaxValue;
-		if (direction == Direction.Top)
-			if (Mathf.Abs (topValue - bottomValue) < 0.1f)
-				bottomValue = int.MaxValue;
-		if (direction == Direction.Bottom)
-			if (Mathf.Abs (topValue - bottomValue) < 0.1f)
-				topValue = int.MaxValue;
-		
-		// find mininum
-		float min = Mathf.Min (Mathf.Min (Mathf.Min (leftValue, rightValue), topValue), bottomValue);
-		
-		// if no minimum found - exit
-		if (min == int.MaxValue)
-			return;
-		
-		//Move to next neighbor
-		if (min == leftValue) {
-			if (left != null && left.collisionState)
-			{
-				if (river.CurrentDirection != Direction.Left){
-					river.TurnCount++;
-					river.CurrentDirection = Direction.Left;
-				}
-				FindPathToWater (left, direction, ref river);
-			}
-		} else if (min == rightValue) {
-			if (right != null && right.collisionState)
-			{
-				if (river.CurrentDirection != Direction.Right){
-					river.TurnCount++;
-					river.CurrentDirection = Direction.Right;
-				}
-				FindPathToWater (right, direction, ref river);
-			}
-		} else if (min == bottomValue) {
-			if (bottom != null && bottom.collisionState)
-			{
-				if (river.CurrentDirection != Direction.Bottom){
-					river.TurnCount++;
-					river.CurrentDirection = Direction.Bottom;
-				}
-				FindPathToWater (bottom, direction, ref river);
-			}
-		} else if (min == topValue) {
-			if (top != null && top.collisionState)
-			{
-				if (river.CurrentDirection != Direction.Top){
-					river.TurnCount++;
-					river.CurrentDirection = Direction.Top;
-				}
-				FindPathToWater (top, direction, ref river);
-			}
-		}
-	}
-	
-	private void UpdateNeighbors()
-	{
-		for (var x = 0; x < width; x++)
-		{
-			for (var y = 0; y < height; y++)
-			{
-				Tile t = tiles[x,y];
-				
-				t.Top = getTileAbove(t);
-				t.Bottom = getTileBelow (t);
-				t.Left = getTileOnLeft (t);
-				t.Right = getTileOnRight (t);
-			}
 		}
 	}
 
@@ -738,7 +519,7 @@ public abstract class Generator {
 		Tile t = getTileAbove (tile);
 		if (t != null && !t.FloodFilled && tile.collisionState == t.collisionState)
 			stack.Push (t);
-		t = getTileBelow (tile);
+		t = getTileAbove (tile);
 		if (t != null && !t.FloodFilled && tile.collisionState == t.collisionState)
 			stack.Push (t);
 		t = getTileOnLeft (tile);
